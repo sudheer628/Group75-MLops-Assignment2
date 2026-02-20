@@ -1,0 +1,6 @@
+# DVC ignore file
+.git
+.venv
+__pycache__
+*.pyc
+mlruns

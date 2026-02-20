@@ -1,0 +1,27 @@
+stages:
+  prepare_data:
+    cmd: python -m src.data.prepare_data
+    deps:
+      - src/data/prepare_data.py
+    outs:
+      - data/processed/train
+      - data/processed/val
+      - data/processed/test
+
+  train:
+    cmd: python -m src.training.train
+    deps:
+      - src/training/train.py
+      - src/models/cnn.py
+      - src/data/dataset.py
+      - data/processed/train
+      - data/processed/val
+      - data/processed/test
+    outs:
+      - models/best_model.pt
+    plots:
+      - models/confusion_matrix.png
+      - models/training_curves.png
+    metrics:
+      - models/metrics.json:
+          cache: false

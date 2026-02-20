@@ -1,0 +1,75 @@
+"""
+Simple CNN model for Cats vs Dogs classification.
+This is our baseline model - nothing fancy, just something that works.
+"""
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class SimpleCNN(nn.Module):
+    """
+    A simple CNN for binary image classification.
+    
+    Architecture:
+    - 3 convolutional blocks (conv -> batchnorm -> relu -> maxpool)
+    - 2 fully connected layers
+    - Dropout for regularization
+    
+    Input: 224x224 RGB images
+    Output: 2 class logits (cat, dog)
+    """
+    
+    def __init__(self, num_classes: int = 2, dropout: float = 0.5):
+        super().__init__()
+        
+        # Conv block 1: 3 -> 32 channels
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.pool1 = nn.MaxPool2d(2, 2)  # 224 -> 112
+        
+        # Conv block 2: 32 -> 64 channels
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.pool2 = nn.MaxPool2d(2, 2)  # 112 -> 56
+        
+        # Conv block 3: 64 -> 128 channels
+        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.pool3 = nn.MaxPool2d(2, 2)  # 56 -> 28
+        
+        # Global average pooling
+        self.global_pool = nn.AdaptiveAvgPool2d((1, 1))
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(128, 64)
+        self.dropout = nn.Dropout(dropout)
+        self.fc2 = nn.Linear(64, num_classes)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Conv blocks
+        x = self.pool1(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool2(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool3(F.relu(self.bn3(self.conv3(x))))
+        
+        # Global pooling and flatten
+        x = self.global_pool(x)
+        x = x.view(x.size(0), -1)
+        
+        # FC layers
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        
+        return x
+    
+    def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
+        """Get class probabilities."""
+        logits = self.forward(x)
+        return F.softmax(logits, dim=1)
+
+
+def create_model(num_classes: int = 2, dropout: float = 0.5) -> SimpleCNN:
+    """Create and return a SimpleCNN model."""
+    return SimpleCNN(num_classes=num_classes, dropout=dropout)

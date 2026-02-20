@@ -1,0 +1,30 @@
+# Core ML
+torch==2.2.0
+torchvision==0.17.0
+pillow==10.2.0
+numpy==1.26.4
+
+# Data handling
+kagglehub==0.2.5
+pandas==2.2.0
+scikit-learn==1.4.0
+
+# Experiment tracking
+mlflow==2.10.2
+
+# API
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+
+# Testing
+pytest==8.0.0
+
+# Data versioning
+dvc==3.42.0
+
+# Utilities
+pyyaml==6.0.1
+tqdm==4.66.2
+matplotlib==3.8.3
+seaborn==0.13.2

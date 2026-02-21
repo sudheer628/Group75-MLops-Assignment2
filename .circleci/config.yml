@@ -65,12 +65,7 @@ jobs:
       - run:
           name: Deploy to GCP VM
           command: |
-            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST << 'EOF'
-              cd ~/cats-dogs-classifier
-              docker-compose pull
-              docker-compose up -d
-              echo "Deployment complete"
-            EOF
+            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "cd ~/cats-dogs-classifier && docker-compose pull && docker-compose up -d && echo 'Deployment complete'"
 
   smoke-test:
     docker:

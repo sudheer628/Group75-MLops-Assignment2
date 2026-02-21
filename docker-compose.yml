@@ -1,0 +1,19 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cats-dogs-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=models/best_model.pt
+      - CLASS_MAPPING_PATH=models/class_mapping.json
+      - LOG_LEVEL=INFO
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

@@ -4,6 +4,11 @@ __pycache__/
 *$py.class
 *.so
 .Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
 .venv/
 venv/
 ENV/
@@ -12,13 +17,15 @@ ENV/
 data/raw/
 data/processed/
 
-# Models (tracked by DVC)
+# Model weights (tracked by DVC, large files)
 models/*.pt
 models/*.pth
+models/*.h5
 
-# MLflow
+# MLflow local artifacts
 mlruns/
 mlartifacts/
+mlflow.db
 
 # IDE
 .idea/
@@ -38,14 +45,13 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# Build
-dist/
-build/
-*.egg-info/
-
 # Logs
 *.log
 
 # Temp files
 *.tmp
 *.temp
+
+# DVC cache (local)
+.dvc/cache/
+.dvc/tmp/

@@ -1,0 +1,37 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+.venv
+venv
+
+# Data (not needed in container)
+data/
+
+# DVC
+.dvc
+*.dvc
+
+# IDE
+.idea
+.vscode
+
+# Tests
+tests/
+.pytest_cache
+
+# Docs
+*.md
+!README.md
+
+# MLflow
+mlruns/
+mlflow.db
+
+# Other
+.dockerignore
+Dockerfile
+docker-compose.yml

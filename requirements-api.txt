@@ -1,0 +1,11 @@
+# API dependencies (minimal for container)
+torch==2.2.0
+torchvision==0.17.0
+pillow==10.2.0
+numpy==1.26.4
+
+# API framework
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+pydantic==2.6.1

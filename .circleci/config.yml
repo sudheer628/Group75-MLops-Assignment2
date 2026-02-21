@@ -1,0 +1,122 @@
+version: 2.1
+
+orbs:
+  python: circleci/python@2.1.1
+
+jobs:
+  test:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - python/install-packages:
+          pkg-manager: pip
+          pip-dependency-file: requirements.txt
+      - run:
+          name: Run tests
+          command: pytest tests/ -v --tb=short
+
+  build:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - run:
+          name: Build Docker image
+          command: |
+            docker build -t cats-dogs-api:${CIRCLE_SHA1} .
+      - run:
+          name: Save image to workspace
+          command: |
+            mkdir -p /tmp/workspace
+            docker save -o /tmp/workspace/image.tar cats-dogs-api:${CIRCLE_SHA1}
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - image.tar
+
+  publish:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - setup_remote_docker
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: Load and push image
+          command: |
+            docker load -i /tmp/workspace/image.tar
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+            docker tag cats-dogs-api:${CIRCLE_SHA1} $DOCKER_USERNAME/cats-dogs-api:${CIRCLE_SHA1}
+            docker tag cats-dogs-api:${CIRCLE_SHA1} $DOCKER_USERNAME/cats-dogs-api:latest
+            docker push $DOCKER_USERNAME/cats-dogs-api:${CIRCLE_SHA1}
+            docker push $DOCKER_USERNAME/cats-dogs-api:latest
+
+  deploy:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints:
+            - "${SSH_FINGERPRINT}"
+      - run:
+          name: Deploy to GCP VM
+          command: |
+            ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST << 'EOF'
+              cd ~/cats-dogs-classifier
+              docker-compose pull
+              docker-compose up -d
+              echo "Deployment complete"
+            EOF
+
+  smoke-test:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - run:
+          name: Wait for service to start
+          command: sleep 30
+      - run:
+          name: Health check
+          command: |
+            response=$(curl -s -o /dev/null -w "%{http_code}" http://$VM_HOST:8000/health)
+            if [ "$response" != "200" ]; then
+              echo "Health check failed with status $response"
+              exit 1
+            fi
+            echo "Health check passed"
+
+workflows:
+  build-test-deploy:
+    jobs:
+      - test
+      - build:
+          requires:
+            - test
+      - publish:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
+          context:
+            - docker-hub
+      - deploy:
+          requires:
+            - publish
+          filters:
+            branches:
+              only: master
+          context:
+            - gcp-vm
+      - smoke-test:
+          requires:
+            - deploy
+          filters:
+            branches:
+              only: master
+          context:
+            - gcp-vm

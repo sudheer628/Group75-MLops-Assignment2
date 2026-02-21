@@ -10,6 +10,9 @@ We created a binary image classifier that predicts whether an image contains a c
 
 GitHub Repo: https://github.com/sudheer628/Group75-MLops-Assignment2
 
+Live API (after deployment): http://136.118.140.118:8000
+Docker Hub: https://hub.docker.com/r/sudheer628/cats-dogs-api
+
 ## Tech Stack
 
 - Python 3.10+, PyTorch, torchvision

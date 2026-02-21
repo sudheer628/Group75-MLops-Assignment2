@@ -1,5 +1,7 @@
 # Cats vs Dogs Image Classification - MLOps Assignment 2
 
+[![CircleCI](https://dl.circleci.com/status-badge/img/gh/sudheer628/Group75-MLops-Assignment2/tree/master.svg?style=svg)](https://dl.circleci.com/status-badge/redirect/gh/sudheer628/Group75-MLops-Assignment2/tree/master)
+
 This is our Group75 MLOps course assignment where we built an end-to-end ML pipeline for classifying images of cats and dogs. We wanted to learn how to handle image data in an MLOps workflow, from data versioning to model deployment. This time we used CircleCI instead of GitHub Actions for CI/CD.
 
 ## What We Built

@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 import matplotlib.pyplot as plt
-import mlflow
 import numpy as np
 import seaborn as sns
 import torch
@@ -238,6 +237,7 @@ def train(
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     set_seed(config.get("seed", 42))
+    mlflow_module = None
     
     # Setup device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -294,9 +294,16 @@ def train(
     
     # Setup MLflow
     if use_mlflow:
-        mlflow.set_experiment(experiment_name)
-        mlflow.start_run()
-        mlflow.log_params(config)
+        try:
+            import mlflow as mlflow_module  # type: ignore
+        except Exception as exc:
+            raise RuntimeError(
+                "MLflow is enabled but could not be imported. "
+                "Use --no-mlflow or fix MLflow dependencies."
+            ) from exc
+        mlflow_module.set_experiment(experiment_name)
+        mlflow_module.start_run()
+        mlflow_module.log_params(config)
     
     # Training loop
     print("Starting training...")
@@ -349,7 +356,7 @@ def train(
         
         # Log to MLflow
         if use_mlflow:
-            mlflow.log_metrics({
+            mlflow_module.log_metrics({
                 "train_loss": train_loss,
                 "train_accuracy": train_acc,
                 "val_loss": val_loss,
@@ -426,15 +433,15 @@ def train(
     
     # Log to MLflow
     if use_mlflow:
-        mlflow.log_metrics(metrics)
-        mlflow.log_artifact(str(output_dir / "best_model.pt"))
-        mlflow.log_artifact(str(output_dir / "confusion_matrix.png"))
-        mlflow.log_artifact(str(output_dir / "training_curves.png"))
-        mlflow.log_artifact(str(output_dir / "metrics.json"))
-        mlflow.log_artifact(str(output_dir / "class_mapping.json"))
-        mlflow.log_artifact(str(output_dir / "model_config.json"))
-        mlflow.log_artifact(str(output_dir / "best_model_scripted.pt"))
-        mlflow.end_run()
+        mlflow_module.log_metrics(metrics)
+        mlflow_module.log_artifact(str(output_dir / "best_model.pt"))
+        mlflow_module.log_artifact(str(output_dir / "confusion_matrix.png"))
+        mlflow_module.log_artifact(str(output_dir / "training_curves.png"))
+        mlflow_module.log_artifact(str(output_dir / "metrics.json"))
+        mlflow_module.log_artifact(str(output_dir / "class_mapping.json"))
+        mlflow_module.log_artifact(str(output_dir / "model_config.json"))
+        mlflow_module.log_artifact(str(output_dir / "best_model_scripted.pt"))
+        mlflow_module.end_run()
     
     print("\nTraining complete!")
     return {"metrics": metrics, "best_val_acc": best_val_acc}

@@ -26,7 +26,15 @@ def download_dataset() -> Path:
         Path to downloaded dataset
     """
     print("Downloading dataset from Kaggle...")
-    path = kagglehub.dataset_download("bhavikjikadara/dog-and-cat-classification-dataset")
+    if hasattr(kagglehub, "dataset_download"):
+        path = kagglehub.dataset_download("bhavikjikadara/dog-and-cat-classification-dataset")
+    elif hasattr(kagglehub, "datasets") and hasattr(kagglehub.datasets, "dataset_download"):
+        path = kagglehub.datasets.dataset_download("bhavikjikadara/dog-and-cat-classification-dataset")
+    else:
+        raise AttributeError(
+            "kagglehub does not expose dataset download API. "
+            "Expected kagglehub.dataset_download or kagglehub.datasets.dataset_download."
+        )
     print(f"Dataset downloaded to: {path}")
     return Path(path)
 

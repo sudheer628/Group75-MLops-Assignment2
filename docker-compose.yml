@@ -1,10 +1,9 @@
 services:
   api:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: sudheer628/cats-dogs-api:latest
     container_name: cats-dogs-api
     ports:
+      - "80:8000"
       - "8000:8000"
     environment:
       - MODEL_PATH=models/best_model.pt

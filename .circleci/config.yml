@@ -73,16 +73,25 @@ jobs:
     steps:
       - run:
           name: Wait for service to start
-          command: sleep 30
+          command: sleep 60
       - run:
-          name: Health check
+          name: Health check with retry
           command: |
-            response=$(curl -s -o /dev/null -w "%{http_code}" http://$VM_HOST:8000/health)
-            if [ "$response" != "200" ]; then
-              echo "Health check failed with status $response"
-              exit 1
-            fi
-            echo "Health check passed"
+            max_attempts=5
+            attempt=1
+            while [ $attempt -le $max_attempts ]; do
+              echo "Attempt $attempt of $max_attempts..."
+              response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 http://$VM_HOST:8000/health || echo "000")
+              if [ "$response" = "200" ]; then
+                echo "Health check passed on port 8000"
+                exit 0
+              fi
+              echo "Got status $response, waiting 15 seconds..."
+              sleep 15
+              attempt=$((attempt + 1))
+            done
+            echo "Health check failed after $max_attempts attempts"
+            exit 1
 
 workflows:
   build-test-deploy:

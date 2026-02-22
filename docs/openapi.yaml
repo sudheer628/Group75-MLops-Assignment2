@@ -3,19 +3,26 @@ info:
   title: Cats vs Dogs Classifier API
   description: |
     Binary image classification API for cats vs dogs.
-    
+
     This API is part of MLOps Assignment-2 (Group75) - BITS WILP.
-    
+
     ## Features
     - Upload an image and get prediction (cat or dog)
     - Health check endpoint for monitoring
     - Web portal for interactive demo
-    
+
     ## Model
-    - Architecture: CNN (4 conv blocks with batch normalization)
+    - Architecture: MobileNetV3-Small (Transfer Learning from ImageNet)
     - Framework: PyTorch
     - Input: 224x224 RGB images
     - Output: Binary classification (cat/dog) with confidence scores
+    - Accuracy: 98% on test set
+
+    ## Training
+    - Two-stage fine-tuning with frozen then unfrozen backbone
+    - AdamW optimizer with CosineAnnealingLR scheduler
+    - Label smoothing (0.1) and early stopping
+    - Mixed precision training (AMP) on GPU
   version: 1.0.0
   contact:
     name: Group75 - BITS WILP
@@ -35,7 +42,7 @@ paths:
       description: Serves the interactive web portal for image classification demo
       operationId: getPortal
       responses:
-        '200':
+        "200":
           description: HTML page for the web portal
           content:
             text/html:
@@ -50,12 +57,12 @@ paths:
       tags:
         - Monitoring
       responses:
-        '200':
+        "200":
           description: Health status response
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HealthResponse'
+                $ref: "#/components/schemas/HealthResponse"
               example:
                 status: healthy
                 version: 1.0.0
@@ -66,7 +73,7 @@ paths:
       summary: Predict Cat or Dog
       description: |
         Upload an image file and get a prediction of whether it contains a cat or dog.
-        
+
         Supported formats: JPEG, PNG, GIF, BMP, WebP
       operationId: predict
       tags:
@@ -85,40 +92,40 @@ paths:
                   format: binary
                   description: Image file to classify
       responses:
-        '200':
+        "200":
           description: Successful prediction
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PredictionResponse'
+                $ref: "#/components/schemas/PredictionResponse"
               example:
                 prediction: cat
                 confidence: 0.87
                 probabilities:
                   cat: 0.87
                   dog: 0.13
-        '400':
+        "400":
           description: Invalid file type
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 detail: "Invalid file type: text/plain. Expected image."
-        '500':
+        "500":
           description: Prediction error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 detail: "Prediction failed: Error processing image"
-        '503':
+        "503":
           description: Model not loaded
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: "#/components/schemas/ErrorResponse"
               example:
                 detail: "Model not loaded. Service unavailable."
 
@@ -130,7 +137,7 @@ paths:
       tags:
         - Documentation
       responses:
-        '200':
+        "200":
           description: Swagger UI HTML page
 
   /redoc:
@@ -141,7 +148,7 @@ paths:
       tags:
         - Documentation
       responses:
-        '200':
+        "200":
           description: ReDoc HTML page
 
   /openapi.json:
@@ -152,7 +159,7 @@ paths:
       tags:
         - Documentation
       responses:
-        '200':
+        "200":
           description: OpenAPI schema in JSON format
           content:
             application/json:

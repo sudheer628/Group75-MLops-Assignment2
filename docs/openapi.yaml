@@ -1,0 +1,227 @@
+openapi: 3.0.3
+info:
+  title: Cats vs Dogs Classifier API
+  description: |
+    Binary image classification API for cats vs dogs.
+    
+    This API is part of MLOps Assignment-2 (Group75) - BITS WILP.
+    
+    ## Features
+    - Upload an image and get prediction (cat or dog)
+    - Health check endpoint for monitoring
+    - Web portal for interactive demo
+    
+    ## Model
+    - Architecture: CNN (4 conv blocks with batch normalization)
+    - Framework: PyTorch
+    - Input: 224x224 RGB images
+    - Output: Binary classification (cat/dog) with confidence scores
+  version: 1.0.0
+  contact:
+    name: Group75 - BITS WILP
+  license:
+    name: MIT
+
+servers:
+  - url: http://myprojectdemo.online
+    description: Production server (GCP VM)
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /:
+    get:
+      summary: Web Portal
+      description: Serves the interactive web portal for image classification demo
+      operationId: getPortal
+      responses:
+        '200':
+          description: HTML page for the web portal
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /health:
+    get:
+      summary: Health Check
+      description: Returns the health status of the API and model loading state
+      operationId: healthCheck
+      tags:
+        - Monitoring
+      responses:
+        '200':
+          description: Health status response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: healthy
+                version: 1.0.0
+                model_loaded: true
+
+  /predict:
+    post:
+      summary: Predict Cat or Dog
+      description: |
+        Upload an image file and get a prediction of whether it contains a cat or dog.
+        
+        Supported formats: JPEG, PNG, GIF, BMP, WebP
+      operationId: predict
+      tags:
+        - Prediction
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Image file to classify
+      responses:
+        '200':
+          description: Successful prediction
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PredictionResponse'
+              example:
+                prediction: cat
+                confidence: 0.87
+                probabilities:
+                  cat: 0.87
+                  dog: 0.13
+        '400':
+          description: Invalid file type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Invalid file type: text/plain. Expected image."
+        '500':
+          description: Prediction error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Prediction failed: Error processing image"
+        '503':
+          description: Model not loaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                detail: "Model not loaded. Service unavailable."
+
+  /docs:
+    get:
+      summary: Swagger UI
+      description: Interactive API documentation (Swagger UI)
+      operationId: getDocs
+      tags:
+        - Documentation
+      responses:
+        '200':
+          description: Swagger UI HTML page
+
+  /redoc:
+    get:
+      summary: ReDoc
+      description: Alternative API documentation (ReDoc)
+      operationId: getRedoc
+      tags:
+        - Documentation
+      responses:
+        '200':
+          description: ReDoc HTML page
+
+  /openapi.json:
+    get:
+      summary: OpenAPI Schema
+      description: Raw OpenAPI JSON schema
+      operationId: getOpenApiJson
+      tags:
+        - Documentation
+      responses:
+        '200':
+          description: OpenAPI schema in JSON format
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - version
+        - model_loaded
+      properties:
+        status:
+          type: string
+          enum: [healthy, unhealthy]
+          description: Overall health status
+        version:
+          type: string
+          description: API version
+        model_loaded:
+          type: boolean
+          description: Whether the ML model is loaded and ready
+
+    PredictionResponse:
+      type: object
+      required:
+        - prediction
+        - confidence
+        - probabilities
+      properties:
+        prediction:
+          type: string
+          enum: [cat, dog]
+          description: Predicted class
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Confidence score for the prediction
+        probabilities:
+          type: object
+          properties:
+            cat:
+              type: number
+              format: float
+              description: Probability of cat class
+            dog:
+              type: number
+              format: float
+              description: Probability of dog class
+          description: Probability distribution across classes
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Error message
+
+tags:
+  - name: Prediction
+    description: Image classification endpoints
+  - name: Monitoring
+    description: Health and status endpoints
+  - name: Documentation
+    description: API documentation endpoints

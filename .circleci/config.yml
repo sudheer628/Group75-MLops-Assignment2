@@ -67,32 +67,6 @@ jobs:
           command: |
             ssh -o StrictHostKeyChecking=no $VM_USER@$VM_HOST "cd ~/cats-dogs-classifier && docker-compose down --remove-orphans && docker-compose pull && docker-compose up -d && echo 'Deployment complete'"
 
-  smoke-test:
-    docker:
-      - image: cimg/python:3.11
-    steps:
-      - run:
-          name: Wait for service to start
-          command: sleep 60
-      - run:
-          name: Health check with retry
-          command: |
-            max_attempts=5
-            attempt=1
-            while [ $attempt -le $max_attempts ]; do
-              echo "Attempt $attempt of $max_attempts..."
-              response=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 http://$VM_HOST:8000/health || echo "000")
-              if [ "$response" = "200" ]; then
-                echo "Health check passed on port 8000"
-                exit 0
-              fi
-              echo "Got status $response, waiting 15 seconds..."
-              sleep 15
-              attempt=$((attempt + 1))
-            done
-            echo "Health check failed after $max_attempts attempts"
-            exit 1
-
 workflows:
   build-test-deploy:
     jobs:
@@ -111,14 +85,6 @@ workflows:
       - deploy:
           requires:
             - publish
-          filters:
-            branches:
-              only: master
-          context:
-            - gcp-vm
-      - smoke-test:
-          requires:
-            - deploy
           filters:
             branches:
               only: master

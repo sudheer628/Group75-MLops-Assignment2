@@ -17,8 +17,9 @@ ENV/
 data/raw/
 data/processed/
 
-# Model weights (tracked by DVC, large files)
-models/*.pt
+# Model weights (large files - tracked by DVC)
+# Note: best_model.pt is small (~1.7MB) so we commit it directly
+# models/*.pt
 models/*.pth
 models/*.h5
 

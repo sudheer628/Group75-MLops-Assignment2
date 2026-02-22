@@ -248,9 +248,13 @@ We plan to set up monitoring similar to Assignment-1:
 
 See `docs/M5-MONITORING-PROCEDURE.md` for the monitoring setup guide.
 
+## Note on Feature Store
+
+In Assignment-1, we used a feature store to store engineered features from tabular data. For this image classification project, we don't use a feature store because the images themselves ARE the features. The CNN learns to extract features automatically through its convolutional layers. The raw pixel data goes through transforms (resize, normalize) and the model handles feature extraction internally.
+
 ## What We Learned
 
-1. **Image data is different** - Unlike tabular data in Assignment-1, images need special handling (transforms, augmentation, batching)
+1. **Image data is different** - Unlike tabular data in Assignment-1, images need special handling (transforms, augmentation, batching). There's no separate "feature engineering" step - the CNN does it automatically.
 
 2. **Deep learning needs GPUs** - Training CNNs on CPU is very slow. For production, we'd use GPU instances.
 
@@ -260,15 +264,18 @@ See `docs/M5-MONITORING-PROCEDURE.md` for the monitoring setup guide.
 
 5. **Data augmentation helps** - Random flips, rotations, and color jitter help the model generalize better.
 
+6. **No feature store for images** - Unlike tabular ML, image classification doesn't need a separate feature store. The model learns features end-to-end.
+
 ## Differences from Assignment-1
 
-| Aspect          | Assignment-1                       | Assignment-2   |
-| --------------- | ---------------------------------- | -------------- |
-| Data Type       | Tabular (CSV)                      | Images         |
-| Model           | Scikit-learn (Logistic Regression) | PyTorch CNN    |
-| CI/CD           | GitHub Actions                     | CircleCI       |
-| Data Versioning | Git                                | DVC            |
-| Dataset Size    | 303 rows                           | ~25,000 images |
+| Aspect          | Assignment-1                       | Assignment-2               |
+| --------------- | ---------------------------------- | -------------------------- |
+| Data Type       | Tabular (CSV)                      | Images                     |
+| Model           | Scikit-learn (Logistic Regression) | PyTorch CNN                |
+| CI/CD           | GitHub Actions                     | CircleCI                   |
+| Data Versioning | Git                                | DVC                        |
+| Dataset Size    | 303 rows                           | ~25,000 images             |
+| Feature Store   | Yes (engineered features)          | No (CNN extracts features) |
 
 ## Files Description
 
@@ -287,4 +294,5 @@ See `docs/M5-MONITORING-PROCEDURE.md` for the monitoring setup guide.
 ## Team
 
 Group75 - BITS WILP MLOps Course 2025-2026
+
 # Test deployment 2026-02-21 23:27:20

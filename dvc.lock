@@ -1,0 +1,72 @@
+schema: '2.0'
+stages:
+  prepare_data:
+    cmd: python -m src.data.prepare_data
+    deps:
+    - path: src/data/prepare_data.py
+      hash: md5
+      md5: 26ed053c81456aff5c975969fc398b9d
+      size: 6313
+    outs:
+    - path: data/processed/test
+      hash: md5
+      md5: c885b7d250e42fcc89b378a6b4ad25fa.dir
+      size: 163959337
+      nfiles: 4758
+    - path: data/processed/train
+      hash: md5
+      md5: 6f0288772ea37d8baf1e47c80d8f0f59.dir
+      size: 813384823
+      nfiles: 23969
+    - path: data/processed/val
+      hash: md5
+      md5: c48752df7145c4dae51cf430ec066238.dir
+      size: 159533356
+      nfiles: 4736
+  train:
+    cmd: python -m src.training.train
+    deps:
+    - path: data/processed/test
+      hash: md5
+      md5: c885b7d250e42fcc89b378a6b4ad25fa.dir
+      size: 163959337
+      nfiles: 4758
+    - path: data/processed/train
+      hash: md5
+      md5: 6f0288772ea37d8baf1e47c80d8f0f59.dir
+      size: 813384823
+      nfiles: 23969
+    - path: data/processed/val
+      hash: md5
+      md5: c48752df7145c4dae51cf430ec066238.dir
+      size: 159533356
+      nfiles: 4736
+    - path: src/data/dataset.py
+      hash: md5
+      md5: 8313396a73c8ef50c0f217ebcfa99e1e
+      size: 5370
+    - path: src/models/cnn.py
+      hash: md5
+      md5: ed1fe8bc6f75145771afa460ef3a1bff
+      size: 2639
+    - path: src/training/train.py
+      hash: md5
+      md5: 0fe3ad8ca9a6bcdf6dc3333bb8b1f61b
+      size: 10003
+    outs:
+    - path: models/best_model.pt
+      hash: md5
+      md5: 6c24fa1173bd882ddba1fae7d454513e
+      size: 1704309
+    - path: models/confusion_matrix.png
+      hash: md5
+      md5: 3b4f78bad1d90855f6e6b302f1408bf6
+      size: 26729
+    - path: models/metrics.json
+      hash: md5
+      md5: 70cc2fb9ca180e29c86d6a7488c976a2
+      size: 152
+    - path: models/training_curves.png
+      hash: md5
+      md5: 41ce7e315a7b4d304581464fb74248d1
+      size: 64627

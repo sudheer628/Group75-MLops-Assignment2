@@ -6,9 +6,12 @@ import io
 import logging
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from PIL import Image
 
 from app.config import settings
@@ -71,10 +74,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve static files
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-@app.get("/", response_model=dict)
+
+@app.get("/", response_class=FileResponse)
 async def root():
-    """Root endpoint."""
+    """Serve the web portal."""
+    index_path = static_dir / "index.html"
+    if index_path.exists():
+        return FileResponse(str(index_path))
     return {
         "message": settings.APP_NAME,
         "version": settings.APP_VERSION,

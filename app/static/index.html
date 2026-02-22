@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MLOps Assignment-2 (Group75)</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+      }
+      .container {
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 1.8rem;
+      }
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 30px;
+        font-size: 0.95rem;
+      }
+      .upload-area {
+        border: 3px dashed #ddd;
+        border-radius: 15px;
+        padding: 40px 20px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-bottom: 20px;
+      }
+      .upload-area:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+      }
+      .upload-area.dragover {
+        border-color: #667eea;
+        background: #f0f2ff;
+      }
+      .upload-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+      }
+      .upload-text {
+        color: #666;
+        margin-bottom: 10px;
+      }
+      .upload-hint {
+        color: #999;
+        font-size: 0.85rem;
+      }
+      #fileInput {
+        display: none;
+      }
+      #preview {
+        max-width: 100%;
+        max-height: 250px;
+        border-radius: 10px;
+        display: none;
+        margin: 0 auto 20px;
+      }
+      .btn {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+      }
+      .btn:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+      .result {
+        margin-top: 25px;
+        padding: 25px;
+        border-radius: 15px;
+        text-align: center;
+        display: none;
+      }
+      .result.cat {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        color: white;
+      }
+      .result.dog {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        color: white;
+      }
+      .result-icon {
+        font-size: 4rem;
+        margin-bottom: 10px;
+      }
+      .result-text {
+        font-size: 1.5rem;
+        font-weight: bold;
+        margin-bottom: 5px;
+      }
+      .confidence {
+        font-size: 1rem;
+        opacity: 0.9;
+      }
+      .error {
+        background: #ff6b6b;
+        color: white;
+        padding: 15px;
+        border-radius: 10px;
+        margin-top: 20px;
+        display: none;
+      }
+      .loading {
+        display: none;
+        text-align: center;
+        margin-top: 20px;
+      }
+      .spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      .footer {
+        text-align: center;
+        margin-top: 25px;
+        color: #999;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Cats vs Dogs Classifier</h1>
+      <p class="subtitle">MLOps Assignment-2 | Group75 | BITS WILP</p>
+
+      <div class="upload-area" id="uploadArea">
+        <div class="upload-icon">📷</div>
+        <p class="upload-text">Drop an image here or click to upload</p>
+        <p class="upload-hint">Supports JPG, PNG images</p>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/*" />
+      <img id="preview" alt="Preview" />
+
+      <button class="btn" id="predictBtn" disabled>Predict</button>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Analyzing image...</p>
+      </div>
+
+      <div class="result" id="result">
+        <div class="result-icon" id="resultIcon"></div>
+        <div class="result-text" id="resultText"></div>
+        <div class="confidence" id="confidence"></div>
+      </div>
+
+      <div class="error" id="error"></div>
+
+      <p class="footer">Powered by PyTorch CNN | Deployed on GCP</p>
+    </div>
+
+    <script>
+      const uploadArea = document.getElementById("uploadArea");
+      const fileInput = document.getElementById("fileInput");
+      const preview = document.getElementById("preview");
+      const predictBtn = document.getElementById("predictBtn");
+      const loading = document.getElementById("loading");
+      const result = document.getElementById("result");
+      const error = document.getElementById("error");
+
+      let selectedFile = null;
+
+      uploadArea.addEventListener("click", () => fileInput.click());
+
+      uploadArea.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        uploadArea.classList.add("dragover");
+      });
+
+      uploadArea.addEventListener("dragleave", () => {
+        uploadArea.classList.remove("dragover");
+      });
+
+      uploadArea.addEventListener("drop", (e) => {
+        e.preventDefault();
+        uploadArea.classList.remove("dragover");
+        const file = e.dataTransfer.files[0];
+        if (file && file.type.startsWith("image/")) {
+          handleFile(file);
+        }
+      });
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files[0]) {
+          handleFile(e.target.files[0]);
+        }
+      });
+
+      function handleFile(file) {
+        selectedFile = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          preview.src = e.target.result;
+          preview.style.display = "block";
+          uploadArea.style.display = "none";
+          predictBtn.disabled = false;
+          result.style.display = "none";
+          error.style.display = "none";
+        };
+        reader.readAsDataURL(file);
+      }
+
+      predictBtn.addEventListener("click", async () => {
+        if (!selectedFile) return;
+
+        predictBtn.disabled = true;
+        loading.style.display = "block";
+        result.style.display = "none";
+        error.style.display = "none";
+
+        const formData = new FormData();
+        formData.append("file", selectedFile);
+
+        try {
+          const response = await fetch("/predict", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            const isCat = data.prediction === "cat";
+            result.className = "result " + data.prediction;
+            document.getElementById("resultIcon").textContent = isCat
+              ? "🐱"
+              : "🐕";
+            document.getElementById("resultText").textContent = isCat
+              ? "It's a Cat!"
+              : "It's a Dog!";
+            document.getElementById("confidence").textContent =
+              `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+            result.style.display = "block";
+          } else {
+            throw new Error(data.detail || "Prediction failed");
+          }
+        } catch (err) {
+          error.textContent = err.message;
+          error.style.display = "block";
+        } finally {
+          loading.style.display = "none";
+          predictBtn.disabled = false;
+        }
+      });
+
+      preview.addEventListener("click", () => {
+        preview.style.display = "none";
+        uploadArea.style.display = "block";
+        selectedFile = null;
+        predictBtn.disabled = true;
+        fileInput.value = "";
+      });
+    </script>
+  </body>
+</html>

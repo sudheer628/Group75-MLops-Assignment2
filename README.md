@@ -343,14 +343,78 @@ We configured our domain `myprojectdemo.online` with an A record pointing to the
 
 ## Milestone 5: Monitoring & Logging
 
-### Request Logging
+We implemented comprehensive monitoring using Prometheus metrics and structured JSON logging.
 
-Our FastAPI application logs:
+### Prometheus Metrics Endpoint
 
-- Request timestamps
-- Prediction results (class and confidence)
-- Latency per request
-- Errors with stack traces
+We added a `/metrics` endpoint that exposes metrics in Prometheus format:
+
+```bash
+curl http://myprojectdemo.online/metrics
+```
+
+**Available Metrics:**
+
+| Metric                        | Type      | Description                                    |
+| ----------------------------- | --------- | ---------------------------------------------- |
+| `api_requests_total`          | Counter   | Total API requests by method, endpoint, status |
+| `api_request_latency_seconds` | Histogram | Request latency distribution                   |
+| `predictions_total`           | Counter   | Total predictions by class (cat/dog)           |
+| `prediction_confidence`       | Histogram | Confidence score distribution                  |
+| `prediction_latency_seconds`  | Histogram | Model inference latency                        |
+| `api_errors_total`            | Counter   | Total errors by type and endpoint              |
+| `model_loaded`                | Gauge     | Model load status (1=loaded, 0=not loaded)     |
+| `active_requests`             | Gauge     | Currently processing requests                  |
+
+### Structured JSON Logging
+
+All logs are output in JSON format for easy parsing and analysis:
+
+```json
+{
+  "timestamp": "2026-02-23T10:30:45.123Z",
+  "level": "INFO",
+  "logger": "cats_dogs_api",
+  "message": "Prediction completed: cat",
+  "request_id": "req-1708685445-42",
+  "endpoint": "/predict",
+  "prediction": "cat",
+  "confidence": 0.9723,
+  "latency_ms": 125.34,
+  "client_ip": "192.168.1.100"
+}
+```
+
+**Log Fields:**
+
+- `timestamp` - ISO 8601 UTC timestamp
+- `level` - Log level (INFO, WARNING, ERROR)
+- `request_id` - Unique request identifier
+- `endpoint` - API endpoint called
+- `method` - HTTP method
+- `status_code` - Response status code
+- `latency_ms` - Request latency in milliseconds
+- `client_ip` - Client IP address
+- `prediction` - Predicted class (for /predict)
+- `confidence` - Prediction confidence (for /predict)
+- `error_type` - Exception type (for errors)
+- `stack_trace` - Full stack trace (for errors)
+
+### Error Logging
+
+Errors are logged with full stack traces:
+
+```json
+{
+  "timestamp": "2026-02-23T10:31:00.456Z",
+  "level": "ERROR",
+  "message": "Prediction failed: Invalid image format",
+  "request_id": "req-1708685460-43",
+  "endpoint": "/predict",
+  "error_type": "ValueError",
+  "stack_trace": "Traceback (most recent call last):\n  File..."
+}
+```
 
 ### Health Check Endpoint
 
@@ -364,12 +428,38 @@ The `/health` endpoint returns:
 }
 ```
 
-### Metrics Tracked
+### Viewing Logs on GCP VM
 
-- Request count
-- Prediction latency
-- Model load status
-- Error count
+```bash
+# SSH into VM
+ssh user@136.118.140.118
+
+# View live logs
+docker logs -f cats-dogs-api
+
+# View last 100 lines
+docker logs --tail=100 cats-dogs-api
+
+# Filter for predictions only
+docker logs cats-dogs-api 2>&1 | grep "Prediction completed"
+
+# Filter for errors only
+docker logs cats-dogs-api 2>&1 | grep "ERROR"
+```
+
+### Viewing Metrics
+
+```bash
+# Get all metrics
+curl http://myprojectdemo.online/metrics
+
+# Example output:
+# api_requests_total{method="POST",endpoint="/predict",status_code="200"} 42.0
+# predictions_total{predicted_class="cat"} 25.0
+# predictions_total{predicted_class="dog"} 17.0
+# prediction_latency_seconds_bucket{le="0.1"} 38.0
+# model_loaded 1.0
+```
 
 ---
 

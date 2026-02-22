@@ -45,6 +45,9 @@ async def lifespan(app: FastAPI):
         predictor = CatsDogsPredictor(
             model_path=settings.MODEL_PATH,
             class_mapping_path=settings.CLASS_MAPPING_PATH,
+            model_config_path=settings.MODEL_CONFIG_PATH,
+            model_architecture=settings.MODEL_ARCH,
+            image_size=settings.IMAGE_SIZE,
         )
         predictor.load()
         logger.info("Model loaded successfully")

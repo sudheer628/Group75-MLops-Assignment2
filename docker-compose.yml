@@ -8,6 +8,9 @@ services:
     environment:
       - MODEL_PATH=models/best_model.pt
       - CLASS_MAPPING_PATH=models/class_mapping.json
+      - MODEL_CONFIG_PATH=models/model_config.json
+      - MODEL_ARCH=simple_cnn
+      - IMAGE_SIZE=224
       - LOG_LEVEL=INFO
     restart: unless-stopped
     healthcheck:

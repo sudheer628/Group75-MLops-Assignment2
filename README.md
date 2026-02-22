@@ -126,12 +126,20 @@ pip install -r requirements.txt
 # Run the full pipeline (downloads data, trains model)
 python run_pipeline.py --epochs 10 --no-mlflow
 
+# Recommended for better accuracy (GPU VM)
+python run_pipeline.py --skip-download --architecture mobilenet_v3_small --epochs 25 --freeze-epochs 4 --batch-size 64 --lr 3e-4 --backbone-lr 3e-5
+
 # Or with quick mode for testing
 python run_pipeline.py --quick --no-mlflow
 
 # Skip download if data already exists
 python run_pipeline.py --skip-download --epochs 10 --no-mlflow
 ```
+
+Training now also saves:
+
+- `models/model_config.json` (architecture + image size)
+- `models/best_model_scripted.pt` (TorchScript export for lightweight deployment)
 
 ### Run Tests
 

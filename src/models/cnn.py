@@ -6,6 +6,7 @@ Efficient architecture optimized for CPU training.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
 
 
 class SimpleCNN(nn.Module):
@@ -72,6 +73,90 @@ class SimpleCNN(nn.Module):
         return F.softmax(logits, dim=1)
 
 
-def create_model(num_classes: int = 2, dropout: float = 0.5) -> SimpleCNN:
-    """Create and return a SimpleCNN model."""
-    return SimpleCNN(num_classes=num_classes, dropout=dropout)
+class TransferLearningCNN(nn.Module):
+    """
+    Transfer-learning wrapper over torchvision backbones.
+
+    Supported architectures:
+    - mobilenet_v3_small
+    - efficientnet_b0
+    """
+
+    def __init__(
+        self,
+        architecture: str = "mobilenet_v3_small",
+        num_classes: int = 2,
+        dropout: float = 0.3,
+        pretrained: bool = True,
+    ):
+        super().__init__()
+        self.architecture = architecture
+
+        if architecture == "mobilenet_v3_small":
+            weights = (
+                models.MobileNet_V3_Small_Weights.IMAGENET1K_V1
+                if pretrained
+                else None
+            )
+            backbone = models.mobilenet_v3_small(weights=weights)
+            in_features = backbone.classifier[-1].in_features
+            backbone.classifier[-1] = nn.Sequential(
+                nn.Dropout(p=dropout),
+                nn.Linear(in_features, num_classes),
+            )
+        elif architecture == "efficientnet_b0":
+            weights = (
+                models.EfficientNet_B0_Weights.IMAGENET1K_V1
+                if pretrained
+                else None
+            )
+            backbone = models.efficientnet_b0(weights=weights)
+            in_features = backbone.classifier[-1].in_features
+            backbone.classifier[-1] = nn.Sequential(
+                nn.Dropout(p=dropout),
+                nn.Linear(in_features, num_classes),
+            )
+        else:
+            raise ValueError(
+                f"Unsupported architecture: {architecture}. "
+                "Choose from: simple_cnn, mobilenet_v3_small, efficientnet_b0"
+            )
+
+        self.backbone = backbone
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.backbone(x)
+
+    def predict_proba(self, x: torch.Tensor) -> torch.Tensor:
+        logits = self.forward(x)
+        return F.softmax(logits, dim=1)
+
+    def freeze_backbone(self) -> None:
+        for param in self.backbone.parameters():
+            param.requires_grad = False
+
+        if self.architecture in {"mobilenet_v3_small", "efficientnet_b0"}:
+            for param in self.backbone.classifier.parameters():
+                param.requires_grad = True
+
+    def unfreeze_backbone(self) -> None:
+        for param in self.backbone.parameters():
+            param.requires_grad = True
+
+
+def create_model(
+    num_classes: int = 2,
+    dropout: float = 0.5,
+    architecture: str = "simple_cnn",
+    pretrained: bool = True,
+) -> nn.Module:
+    """Create and return a classification model."""
+    if architecture == "simple_cnn":
+        return SimpleCNN(num_classes=num_classes, dropout=dropout)
+
+    return TransferLearningCNN(
+        architecture=architecture,
+        num_classes=num_classes,
+        dropout=dropout,
+        pretrained=pretrained,
+    )

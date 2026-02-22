@@ -33,8 +33,33 @@ def main():
     parser.add_argument(
         "--lr",
         type=float,
-        default=0.001,
-        help="Learning rate (default: 0.001)",
+        default=3e-4,
+        help="Learning rate for classifier head (default: 3e-4)",
+    )
+    parser.add_argument(
+        "--backbone-lr",
+        type=float,
+        default=3e-5,
+        help="Learning rate for backbone during fine-tuning (default: 3e-5)",
+    )
+    parser.add_argument(
+        "--architecture",
+        type=str,
+        default="mobilenet_v3_small",
+        choices=["simple_cnn", "mobilenet_v3_small", "efficientnet_b0"],
+        help="Model architecture (default: mobilenet_v3_small)",
+    )
+    parser.add_argument(
+        "--freeze-epochs",
+        type=int,
+        default=4,
+        help="Number of epochs to train head with frozen backbone (default: 4)",
+    )
+    parser.add_argument(
+        "--num-workers",
+        type=int,
+        default=2,
+        help="Number of dataloader workers (default: 2)",
     )
     parser.add_argument(
         "--no-mlflow",
@@ -67,6 +92,10 @@ def main():
     config["epochs"] = args.epochs
     config["batch_size"] = args.batch_size
     config["learning_rate"] = args.lr
+    config["backbone_learning_rate"] = args.backbone_lr
+    config["architecture"] = args.architecture
+    config["freeze_epochs"] = args.freeze_epochs
+    config["num_workers"] = args.num_workers
     
     # Quick mode uses subset
     max_samples = 500 if args.quick else None

@@ -70,33 +70,51 @@ The raw data is tracked with DVC so we don't have to store large files in Git.
 
 ## Model Architecture
 
-We built a simple CNN with:
+We use transfer learning with a pretrained MobileNetV3-Small backbone from torchvision. This approach gives us much better accuracy than training a CNN from scratch.
 
-- 4 convolutional blocks (32 -> 64 -> 128 -> 256 channels)
-- Batch normalization after each conv layer
-- Max pooling to reduce spatial dimensions
-- Global average pooling
-- 2 fully connected layers with dropout
+Architecture details:
+
+- Backbone: MobileNetV3-Small (pretrained on ImageNet)
+- Custom classifier head with dropout (0.3)
 - Input: 224x224 RGB images
 - Output: 2 classes (cat, dog)
 
+Training strategy:
+
+- Two-stage fine-tuning:
+  - Stage 1 (4 epochs): Freeze backbone, train only classifier head
+  - Stage 2 (remaining epochs): Unfreeze backbone with lower learning rate
+- Optimizer: AdamW with weight decay (1e-4)
+- Scheduler: CosineAnnealingLR
+- Label smoothing: 0.1
+- Early stopping patience: 5 epochs
+- Mixed precision training (torch.cuda.amp) for faster GPU training
+
+Data augmentation:
+
+- RandomResizedCrop (224, scale 0.7-1.0)
+- RandomHorizontalFlip
+- RandomRotation (10 degrees)
+- ColorJitter (brightness, contrast, saturation, hue)
+- RandomErasing (15% probability)
+
 ## Training Results
 
-We trained the model on CPU (no GPU available locally), so we used a subset of the data:
+We trained the model on a GPU VM using the full dataset with mixed precision training:
 
-- Training samples: 2000
-- Validation samples: 500
-- Test samples: 500
-- Epochs: 5
+- Training samples: ~20,000
+- Validation samples: ~2,500
+- Test samples: ~2,500
+- Epochs: 20 (with early stopping)
 
-Current metrics:
+Final metrics:
 
-- Test Accuracy: 66.6%
-- Precision: 70.2%
-- Recall: 66.6%
-- F1 Score: 64.2%
+- Test Accuracy: 98%
+- Precision: 98%
+- Recall: 98%
+- F1 Score: 98%
 
-Note: With GPU and full dataset (15-20 epochs), we expect 85-90%+ accuracy.
+The transfer learning approach with MobileNetV3 backbone significantly outperformed our initial custom CNN (which achieved ~66% accuracy on CPU with limited data).
 
 ## How to Run Locally
 
@@ -264,28 +282,34 @@ In Assignment-1, we used a feature store to store engineered features from tabul
 
 ## What We Learned
 
-1. **Image data is different** - Unlike tabular data in Assignment-1, images need special handling (transforms, augmentation, batching). There's no separate "feature engineering" step - the CNN does it automatically.
+1. **Transfer learning is powerful** - Using a pretrained MobileNetV3 backbone gave us 98% accuracy vs ~66% with a custom CNN trained from scratch. Pretrained models have already learned useful features from ImageNet.
 
-2. **Deep learning needs GPUs** - Training CNNs on CPU is very slow. For production, we'd use GPU instances.
+2. **Two-stage fine-tuning works well** - Freezing the backbone first and training only the classifier head, then unfreezing with a lower learning rate, helps prevent catastrophic forgetting.
 
-3. **CircleCI vs GitHub Actions** - Both work well for CI/CD. CircleCI has a nice UI and good Docker support.
+3. **Image data is different** - Unlike tabular data in Assignment-1, images need special handling (transforms, augmentation, batching). There's no separate "feature engineering" step - the CNN does it automatically.
 
-4. **DVC for large files** - Git can't handle large datasets, so DVC is essential for ML projects.
+4. **GPU training is essential** - Training deep learning models on CPU is very slow. Mixed precision training (AMP) on GPU made training much faster.
 
-5. **Data augmentation helps** - Random flips, rotations, and color jitter help the model generalize better.
+5. **CircleCI vs GitHub Actions** - Both work well for CI/CD. CircleCI has a nice UI and good Docker support.
 
-6. **No feature store for images** - Unlike tabular ML, image classification doesn't need a separate feature store. The model learns features end-to-end.
+6. **DVC for large files** - Git can't handle large datasets, so DVC is essential for ML projects.
+
+7. **Data augmentation helps** - RandomResizedCrop, ColorJitter, and RandomErasing help the model generalize better and prevent overfitting.
+
+8. **No feature store for images** - Unlike tabular ML, image classification doesn't need a separate feature store. The model learns features end-to-end.
 
 ## Differences from Assignment-1
 
-| Aspect          | Assignment-1                       | Assignment-2               |
-| --------------- | ---------------------------------- | -------------------------- |
-| Data Type       | Tabular (CSV)                      | Images                     |
-| Model           | Scikit-learn (Logistic Regression) | PyTorch CNN                |
-| CI/CD           | GitHub Actions                     | CircleCI                   |
-| Data Versioning | Git                                | DVC                        |
-| Dataset Size    | 303 rows                           | ~25,000 images             |
-| Feature Store   | Yes (engineered features)          | No (CNN extracts features) |
+| Aspect          | Assignment-1                       | Assignment-2                            |
+| --------------- | ---------------------------------- | --------------------------------------- |
+| Data Type       | Tabular (CSV)                      | Images                                  |
+| Model           | Scikit-learn (Logistic Regression) | PyTorch MobileNetV3 (Transfer Learning) |
+| CI/CD           | GitHub Actions                     | CircleCI                                |
+| Data Versioning | Git                                | DVC                                     |
+| Dataset Size    | 303 rows                           | ~25,000 images                          |
+| Feature Store   | Yes (engineered features)          | No (CNN extracts features)              |
+| Training        | CPU (seconds)                      | GPU with mixed precision (minutes)      |
+| Accuracy        | ~85%                               | 98%                                     |
 
 ## Files Description
 

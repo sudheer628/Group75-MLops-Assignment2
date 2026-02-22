@@ -19,6 +19,9 @@ class Settings:
     # Model settings
     MODEL_PATH: str = os.getenv("MODEL_PATH", "models/best_model.pt")
     CLASS_MAPPING_PATH: str = os.getenv("CLASS_MAPPING_PATH", "models/class_mapping.json")
+    MODEL_CONFIG_PATH: str = os.getenv("MODEL_CONFIG_PATH", "models/model_config.json")
+    MODEL_ARCH: str = os.getenv("MODEL_ARCH", "simple_cnn")
+    IMAGE_SIZE: int = int(os.getenv("IMAGE_SIZE", "224"))
     
     # Logging
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")

@@ -22,22 +22,23 @@ CLASS_TO_IDX = {"cats": 0, "dogs": 1}
 IDX_TO_CLASS = {0: "cat", 1: "dog"}
 
 
-def get_train_transforms() -> transforms.Compose:
+def get_train_transforms(image_size: int = IMAGE_SIZE) -> transforms.Compose:
     """Get transforms for training data with augmentation."""
     return transforms.Compose([
-        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        transforms.RandomResizedCrop(image_size, scale=(0.7, 1.0)),
         transforms.RandomHorizontalFlip(p=0.5),
-        transforms.RandomRotation(degrees=15),
-        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+        transforms.RandomRotation(degrees=10),
+        transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.15, hue=0.05),
         transforms.ToTensor(),
         transforms.Normalize(mean=MEAN, std=STD),
+        transforms.RandomErasing(p=0.15, scale=(0.02, 0.12), ratio=(0.3, 3.3)),
     ])
 
 
-def get_val_transforms() -> transforms.Compose:
+def get_val_transforms(image_size: int = IMAGE_SIZE) -> transforms.Compose:
     """Get transforms for validation/test data (no augmentation)."""
     return transforms.Compose([
-        transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
+        transforms.Resize((image_size, image_size)),
         transforms.ToTensor(),
         transforms.Normalize(mean=MEAN, std=STD),
     ])
@@ -114,6 +115,7 @@ def create_dataloaders(
     batch_size: int = 32,
     num_workers: int = 0,
     max_samples: int = None,
+    image_size: int = IMAGE_SIZE,
 ) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
     """
     Create train, val, and test dataloaders.
@@ -131,17 +133,17 @@ def create_dataloaders(
     
     train_dataset = CatsDogsDataset(
         data_dir / "train",
-        transform=get_train_transforms(),
+        transform=get_train_transforms(image_size=image_size),
         max_samples=max_samples,
     )
     val_dataset = CatsDogsDataset(
         data_dir / "val",
-        transform=get_val_transforms(),
+        transform=get_val_transforms(image_size=image_size),
         max_samples=max_samples // 4 if max_samples else None,
     )
     test_dataset = CatsDogsDataset(
         data_dir / "test",
-        transform=get_val_transforms(),
+        transform=get_val_transforms(image_size=image_size),
         max_samples=max_samples // 4 if max_samples else None,
     )
     

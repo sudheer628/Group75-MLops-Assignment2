@@ -6,6 +6,7 @@ Handles dataset download, organization, and train/val/test splitting.
 import os
 import shutil
 import random
+import importlib
 from pathlib import Path
 from typing import Tuple
 
@@ -26,7 +27,27 @@ def download_dataset() -> Path:
         Path to downloaded dataset
     """
     print("Downloading dataset from Kaggle...")
-    path = kagglehub.dataset_download("bhavikjikadara/dog-and-cat-classification-dataset")
+    dataset_handle = "bhavikjikadara/dog-and-cat-classification-dataset"
+
+    path = None
+
+    if hasattr(kagglehub, "dataset_download"):
+        path = kagglehub.dataset_download(dataset_handle)
+
+    if path is None:
+        try:
+            kagglehub_datasets = importlib.import_module("kagglehub.datasets")
+            if hasattr(kagglehub_datasets, "dataset_download"):
+                path = kagglehub_datasets.dataset_download(dataset_handle)
+        except ModuleNotFoundError:
+            path = None
+
+    if path is None:
+        raise AttributeError(
+            "kagglehub does not expose dataset download API. "
+            "Expected either kagglehub.dataset_download or kagglehub.datasets.dataset_download."
+        )
+
     print(f"Dataset downloaded to: {path}")
     return Path(path)
 

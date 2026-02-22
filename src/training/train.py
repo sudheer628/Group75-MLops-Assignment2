@@ -4,16 +4,17 @@ Includes training loop, evaluation, and MLflow logging.
 """
 
 import json
+import random
 import sys
 from pathlib import Path
 from typing import Dict, Tuple
 
 import matplotlib.pyplot as plt
-import mlflow
 import numpy as np
 import seaborn as sns
 import torch
 import torch.nn as nn
+from torch.cuda.amp import GradScaler, autocast
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -28,21 +29,40 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from src.data.dataset import (
+    IMAGE_SIZE,
     IDX_TO_CLASS,
     create_dataloaders,
 )
-from src.models.cnn import create_model
+from src.models.cnn import TransferLearningCNN, create_model
 
 
 # Default hyperparameters
 DEFAULT_CONFIG = {
     "batch_size": 32,
-    "learning_rate": 0.001,
-    "epochs": 10,
-    "dropout": 0.5,
+    "learning_rate": 3e-4,
+    "backbone_learning_rate": 3e-5,
+    "epochs": 20,
+    "freeze_epochs": 4,
+    "dropout": 0.3,
     "weight_decay": 1e-4,
-    "num_workers": 0,
+    "num_workers": 2,
+    "label_smoothing": 0.1,
+    "architecture": "mobilenet_v3_small",
+    "pretrained": True,
+    "image_size": IMAGE_SIZE,
+    "early_stopping_patience": 5,
+    "seed": 42,
 }
+
+
+def set_seed(seed: int) -> None:
+    """Set random seeds for reproducibility."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True
 
 
 def train_one_epoch(
@@ -51,6 +71,8 @@ def train_one_epoch(
     criterion: nn.Module,
     optimizer: torch.optim.Optimizer,
     device: torch.device,
+    scaler: GradScaler,
+    use_amp: bool,
 ) -> Tuple[float, float]:
     """
     Train for one epoch.
@@ -68,10 +90,13 @@ def train_one_epoch(
         images, labels = images.to(device), labels.to(device)
         
         optimizer.zero_grad()
-        outputs = model(images)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+        with autocast(enabled=use_amp):
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         
         running_loss += loss.item()
         _, predicted = outputs.max(1)
@@ -211,6 +236,8 @@ def train(
     config = config or DEFAULT_CONFIG.copy()
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    set_seed(config.get("seed", 42))
+    mlflow_module = None
     
     # Setup device
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -223,42 +250,96 @@ def train(
         batch_size=config["batch_size"],
         num_workers=config["num_workers"],
         max_samples=max_samples,
+        image_size=config.get("image_size", IMAGE_SIZE),
     )
     
     # Create model
     print("Creating model...")
-    model = create_model(num_classes=2, dropout=config["dropout"])
+    model = create_model(
+        num_classes=2,
+        dropout=config["dropout"],
+        architecture=config.get("architecture", "simple_cnn"),
+        pretrained=config.get("pretrained", True),
+    )
     model = model.to(device)
     
     # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(
-        model.parameters(),
-        lr=config["learning_rate"],
-        weight_decay=config["weight_decay"],
+    criterion = nn.CrossEntropyLoss(label_smoothing=config.get("label_smoothing", 0.0))
+
+    architecture = config.get("architecture", "simple_cnn")
+    is_transfer = architecture in {"mobilenet_v3_small", "efficientnet_b0"}
+
+    if is_transfer:
+        assert isinstance(model, TransferLearningCNN)
+        model.freeze_backbone()
+        optimizer = torch.optim.AdamW(
+            model.backbone.classifier.parameters(),
+            lr=config["learning_rate"],
+            weight_decay=config["weight_decay"],
+        )
+    else:
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=config["learning_rate"],
+            weight_decay=config["weight_decay"],
+        )
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer,
+        T_max=max(1, config["epochs"]),
+        eta_min=1e-6,
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.5, patience=2
-    )
+    use_amp = device.type == "cuda"
+    scaler = GradScaler(enabled=use_amp)
     
     # Setup MLflow
     if use_mlflow:
-        mlflow.set_experiment(experiment_name)
-        mlflow.start_run()
-        mlflow.log_params(config)
+        try:
+            import mlflow as mlflow_module  # type: ignore
+        except Exception as exc:
+            raise RuntimeError(
+                "MLflow is enabled but could not be imported. "
+                "Use --no-mlflow or fix MLflow dependencies."
+            ) from exc
+        mlflow_module.set_experiment(experiment_name)
+        mlflow_module.start_run()
+        mlflow_module.log_params(config)
     
     # Training loop
     print("Starting training...")
     train_losses, val_losses = [], []
     train_accs, val_accs = [], []
     best_val_acc = 0.0
+    epochs_without_improvement = 0
     
     for epoch in range(1, config["epochs"] + 1):
         print(f"\nEpoch {epoch}/{config['epochs']}")
         
         # Train
+        if is_transfer and epoch == config.get("freeze_epochs", 0) + 1:
+            print("Unfreezing backbone for fine-tuning...")
+            model.unfreeze_backbone()
+            optimizer = torch.optim.AdamW(
+                [
+                    {
+                        "params": model.backbone.features.parameters(),
+                        "lr": config.get("backbone_learning_rate", config["learning_rate"] / 10),
+                    },
+                    {
+                        "params": model.backbone.classifier.parameters(),
+                        "lr": config["learning_rate"],
+                    },
+                ],
+                weight_decay=config["weight_decay"],
+            )
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer,
+                T_max=max(1, config["epochs"] - epoch + 1),
+                eta_min=1e-6,
+            )
+
         train_loss, train_acc = train_one_epoch(
-            model, train_loader, criterion, optimizer, device
+            model, train_loader, criterion, optimizer, device, scaler, use_amp
         )
         train_losses.append(train_loss)
         train_accs.append(train_acc)
@@ -268,29 +349,46 @@ def train(
         val_losses.append(val_loss)
         val_accs.append(val_acc)
         
-        scheduler.step(val_loss)
+        scheduler.step()
         
         print(f"  Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}")
         print(f"  Val Loss: {val_loss:.4f}, Val Acc: {val_acc:.4f}")
         
         # Log to MLflow
         if use_mlflow:
-            mlflow.log_metrics({
+            mlflow_module.log_metrics({
                 "train_loss": train_loss,
                 "train_accuracy": train_acc,
                 "val_loss": val_loss,
                 "val_accuracy": val_acc,
+                "lr": optimizer.param_groups[0]["lr"],
             }, step=epoch)
         
         # Save best model
         if val_acc > best_val_acc:
             best_val_acc = val_acc
-            torch.save(model.state_dict(), output_dir / "best_model.pt")
+            torch.save(
+                {
+                    "state_dict": model.state_dict(),
+                    "architecture": architecture,
+                    "image_size": config.get("image_size", IMAGE_SIZE),
+                },
+                output_dir / "best_model.pt",
+            )
             print(f"  Saved best model (val_acc: {val_acc:.4f})")
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+
+        if epochs_without_improvement >= config.get("early_stopping_patience", 5):
+            print("Early stopping triggered")
+            break
     
     # Final evaluation on test set
     print("\nEvaluating on test set...")
-    model.load_state_dict(torch.load(output_dir / "best_model.pt"))
+    checkpoint = torch.load(output_dir / "best_model.pt", map_location=device)
+    state_dict = checkpoint["state_dict"] if isinstance(checkpoint, dict) and "state_dict" in checkpoint else checkpoint
+    model.load_state_dict(state_dict)
     test_loss, test_acc, y_true, y_pred = evaluate(
         model, test_loader, criterion, device
     )
@@ -316,16 +414,34 @@ def train(
     # Save class mapping
     with open(output_dir / "class_mapping.json", "w") as f:
         json.dump(IDX_TO_CLASS, f, indent=2)
+
+    with open(output_dir / "model_config.json", "w") as f:
+        json.dump(
+            {
+                "architecture": architecture,
+                "image_size": config.get("image_size", IMAGE_SIZE),
+            },
+            f,
+            indent=2,
+        )
+
+    model_cpu = model.to("cpu")
+    model_cpu.eval()
+    example = torch.randn(1, 3, config.get("image_size", IMAGE_SIZE), config.get("image_size", IMAGE_SIZE))
+    scripted_model = torch.jit.trace(model_cpu, example)
+    scripted_model.save(str(output_dir / "best_model_scripted.pt"))
     
     # Log to MLflow
     if use_mlflow:
-        mlflow.log_metrics(metrics)
-        mlflow.log_artifact(str(output_dir / "best_model.pt"))
-        mlflow.log_artifact(str(output_dir / "confusion_matrix.png"))
-        mlflow.log_artifact(str(output_dir / "training_curves.png"))
-        mlflow.log_artifact(str(output_dir / "metrics.json"))
-        mlflow.log_artifact(str(output_dir / "class_mapping.json"))
-        mlflow.end_run()
+        mlflow_module.log_metrics(metrics)
+        mlflow_module.log_artifact(str(output_dir / "best_model.pt"))
+        mlflow_module.log_artifact(str(output_dir / "confusion_matrix.png"))
+        mlflow_module.log_artifact(str(output_dir / "training_curves.png"))
+        mlflow_module.log_artifact(str(output_dir / "metrics.json"))
+        mlflow_module.log_artifact(str(output_dir / "class_mapping.json"))
+        mlflow_module.log_artifact(str(output_dir / "model_config.json"))
+        mlflow_module.log_artifact(str(output_dir / "best_model_scripted.pt"))
+        mlflow_module.end_run()
     
     print("\nTraining complete!")
     return {"metrics": metrics, "best_val_acc": best_val_acc}
